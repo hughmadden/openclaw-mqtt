@@ -56,7 +56,7 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
         return { ok: false, error: "MQTT not configured" };
       }
 
-      if (!mqttClient?.isConnected()) {
+      if (!mqttClient || !mqttClient.isConnected()) {
         return { ok: false, error: "MQTT not connected" };
       }
 
