@@ -1,0 +1,19 @@
+# Source (use dist/)
+src/
+*.ts
+!dist/**/*.d.ts
+
+# Tests
+**/*.test.ts
+coverage/
+vitest.config.ts
+
+# Dev
+.github/
+docs/
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore

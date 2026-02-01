@@ -1,0 +1,66 @@
+{
+  "name": "@hughmadden/openclaw-mqtt",
+  "version": "0.1.0",
+  "description": "MQTT channel plugin for OpenClaw - bidirectional messaging via MQTT brokers",
+  "type": "module",
+  "main": "index.ts",
+  "keywords": [
+    "openclaw",
+    "mqtt",
+    "iot",
+    "channel",
+    "plugin",
+    "home-assistant",
+    "mosquitto"
+  ],
+  "author": "Hugh Madden",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "turq@10.0.20.9:/opt/git/openclaw-mqtt.git"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "mqtt",
+      "label": "MQTT",
+      "selectionLabel": "MQTT (IoT/Home Automation)",
+      "docsPath": "/channels/mqtt",
+      "docsLabel": "mqtt",
+      "blurb": "Bidirectional messaging via MQTT brokers (Mosquitto, EMQX, etc.)",
+      "order": 80
+    },
+    "install": {
+      "npmSpec": "@hughmadden/openclaw-mqtt",
+      "localPath": "extensions/mqtt",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "mqtt": "^5.10.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "openclaw": "*",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^22.0.0"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  }
+}
