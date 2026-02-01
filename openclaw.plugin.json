@@ -1,5 +1,5 @@
 {
-  "id": "mqtt",
+  "id": "openclaw-mqtt",
   "name": "MQTT",
   "description": "Bidirectional MQTT channel for IoT and home automation integration",
   "channels": ["mqtt"],
