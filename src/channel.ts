@@ -1,6 +1,7 @@
 import type { ChannelPlugin, InboundMessage } from "openclaw/plugin-sdk";
 import type { MqttCoreConfig } from "./types.js";
 import { createMqttClient, MqttClientManager } from "./client.js";
+import { mqttOnboardingAdapter } from "./onboarding.js";
 
 // Global client instance (one per gateway lifecycle)
 let mqttClient: MqttClientManager | null = null;
@@ -114,6 +115,9 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
       }
     },
   },
+
+  // Onboarding adapter for `openclaw configure channels`
+  onboarding: mqttOnboardingAdapter,
 };
 
 /**
