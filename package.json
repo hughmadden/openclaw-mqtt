@@ -1,6 +1,6 @@
 {
   "name": "@turquoisebay/openclaw-mqtt",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MQTT channel plugin for OpenClaw - bidirectional messaging via MQTT brokers",
   "type": "module",
   "main": "index.ts",
@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "turq@10.0.20.9:/opt/git/openclaw-mqtt.git"
+    "url": "https://github.com/hughmadden/openclaw-mqtt"
   },
   "openclaw": {
     "extensions": [

@@ -23,7 +23,7 @@ openclaw plugins install @turquoisebay/openclaw-mqtt
 Or manually:
 
 ```bash
-git clone turq@10.0.20.9:/opt/git/openclaw-mqtt.git ~/.openclaw/extensions/mqtt
+git clone https://github.com/hughmadden/openclaw-mqtt ~/.openclaw/extensions/mqtt
 cd ~/.openclaw/extensions/mqtt && npm install
 ```
 
