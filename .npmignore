@@ -1,10 +1,6 @@
-# Source (use dist/)
-src/
-*.ts
-!dist/**/*.d.ts
-
-# Tests
+# Tests (don't ship test files)
 **/*.test.ts
+src/__mocks__/
 coverage/
 vitest.config.ts
 
