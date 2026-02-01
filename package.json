@@ -1,5 +1,5 @@
 {
-  "name": "@hughmadden/openclaw-mqtt",
+  "name": "@turquoisebay/openclaw-mqtt",
   "version": "0.1.0",
   "description": "MQTT channel plugin for OpenClaw - bidirectional messaging via MQTT brokers",
   "type": "module",

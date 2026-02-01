@@ -1,7 +1,7 @@
-# @hughmadden/openclaw-mqtt
+# @turquoisebay/openclaw-mqtt
 
 [![CI](https://github.com/hughmadden/openclaw-mqtt/actions/workflows/ci.yml/badge.svg)](https://github.com/hughmadden/openclaw-mqtt/actions)
-[![npm](https://img.shields.io/npm/v/@hughmadden/openclaw-mqtt)](https://www.npmjs.com/package/@hughmadden/openclaw-mqtt)
+[![npm](https://img.shields.io/npm/v/@turquoisebay/openclaw-mqtt)](https://www.npmjs.com/package/@turquoisebay/openclaw-mqtt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 MQTT channel plugin for [OpenClaw](https://github.com/openclaw/openclaw) — bidirectional messaging via MQTT brokers.
@@ -17,7 +17,7 @@ MQTT channel plugin for [OpenClaw](https://github.com/openclaw/openclaw) — bid
 ## Installation
 
 ```bash
-openclaw plugins install @hughmadden/openclaw-mqtt
+openclaw plugins install @turquoisebay/openclaw-mqtt
 ```
 
 Or manually:
