@@ -1,4 +1,4 @@
-import type { ChannelPlugin, InboundMessage } from "openclaw/plugin-sdk";
+import type { ChannelPlugin } from "openclaw/plugin-sdk";
 import type { MqttCoreConfig } from "./types.js";
 import { createMqttClient, MqttClientManager } from "./client.js";
 import { mqttOnboardingAdapter } from "./onboarding.js";
@@ -27,7 +27,6 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
   capabilities: {
     chatTypes: ["direct"],
-    // MQTT is primarily machine-to-machine, so limited chat features
     supportsMedia: false,
     supportsReactions: false,
     supportsThreads: false,
@@ -35,7 +34,6 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
   config: {
     listAccountIds: (cfg: any) => {
-      // Single account for now (the broker connection)
       return cfg.channels?.mqtt?.brokerUrl ? ["default"] : [];
     },
 
@@ -78,7 +76,6 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
     },
   },
 
-  // Gateway lifecycle hooks
   gateway: {
     startAccount: async (ctx: any) => {
       const { cfg, account, accountId, abortSignal, log } = ctx;
@@ -109,8 +106,19 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
       // Subscribe to inbound topic
       const inboundTopic = mqtt.topics?.inbound ?? "openclaw/inbound";
-      mqttClient.subscribe(inboundTopic, (topic: string, payload: Buffer) => {
-        handleInboundMessage(topic, payload, runtime, log, accountId);
+      const outboundTopic = mqtt.topics?.outbound ?? "openclaw/outbound";
+      
+      mqttClient.subscribe(inboundTopic, async (topic: string, payload: Buffer) => {
+        await handleInboundMessage({
+          topic,
+          payload,
+          runtime,
+          cfg,
+          accountId,
+          log,
+          outboundTopic,
+          qos: mqtt.qos,
+        });
       });
 
       log?.info?.(`[${accountId}] MQTT channel ready, subscribed to ${inboundTopic}`);
@@ -136,69 +144,115 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
     },
   },
 
-  // Onboarding adapter for `openclaw configure channels`
   onboarding: mqttOnboardingAdapter,
 };
 
 /**
- * Handle inbound MQTT message and inject into OpenClaw as a system event
+ * Handle inbound MQTT message - process through OpenClaw agent and deliver reply
  */
-function handleInboundMessage(
-  topic: string,
-  payload: Buffer,
-  runtime: any,
-  log: any,
-  accountId: string
-) {
+async function handleInboundMessage(opts: {
+  topic: string;
+  payload: Buffer;
+  runtime: any;
+  cfg: any;
+  accountId: string;
+  log: any;
+  outboundTopic: string;
+  qos: number;
+}) {
+  const { topic, payload, runtime, cfg, accountId, log, outboundTopic, qos } = opts;
+
   try {
     const text = payload.toString("utf-8");
     log?.info?.(`Inbound MQTT message on ${topic}: ${text.slice(0, 200)}${text.length > 200 ? "..." : ""}`);
 
-    // Try to parse as JSON for structured messages
-    let parsedPayload: unknown;
+    // Parse JSON if possible to extract structured data
+    let parsedPayload: Record<string, unknown> | null = null;
     try {
       parsedPayload = JSON.parse(text);
     } catch {
-      // Not JSON, use as plain text
       parsedPayload = null;
     }
 
-    // Extract message text and sender
-    let messageText: string;
-    let senderId = "mqtt";
+    // Extract message body and sender from payload
+    let messageBody: string;
+    let senderId: string;
 
     if (parsedPayload && typeof parsedPayload === "object") {
-      const obj = parsedPayload as Record<string, unknown>;
-      // Support common alert formats
-      messageText =
-        (obj.message as string) ??
-        (obj.text as string) ??
-        (obj.msg as string) ??
-        (obj.alert as string) ??
-        (obj.body as string) ??
+      messageBody =
+        (parsedPayload.message as string) ??
+        (parsedPayload.text as string) ??
+        (parsedPayload.msg as string) ??
+        (parsedPayload.alert as string) ??
+        (parsedPayload.body as string) ??
         text;
 
-      // Extract sender if available
       senderId =
-        (obj.source as string) ??
-        (obj.sender as string) ??
-        (obj.from as string) ??
-        (obj.service as string) ??
+        (parsedPayload.source as string) ??
+        (parsedPayload.sender as string) ??
+        (parsedPayload.from as string) ??
+        (parsedPayload.service as string) ??
         topic.replace(/\//g, "-");
     } else {
-      messageText = text;
+      messageBody = text;
       senderId = topic.replace(/\//g, "-");
     }
 
-    // Format as system event with context
-    const systemEventText = `[MQTT/${senderId}] ${messageText}`;
-    
-    // Enqueue as system event to main session
-    runtime.system.enqueueSystemEvent(systemEventText, {
-      sessionKey: "agent:main:main",
+    // Build the inbound context using OpenClaw's standard format
+    const ctxPayload = runtime.channel.reply.finalizeInboundContext({
+      Body: messageBody,
+      RawBody: text,
+      From: `mqtt:${senderId}`,
+      To: `mqtt:${accountId}`,
+      SessionKey: `agent:main:mqtt:${senderId}`,
+      AccountId: accountId,
+      ChatType: "direct",
+      SenderName: senderId,
+      SenderId: senderId,
+      Provider: "mqtt",
+      Surface: "mqtt",
+      MessageSid: `mqtt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      Timestamp: Date.now(),
     });
 
-    log?.info?.(`MQTT message enqueued as system event from ${senderId}`);
+    log?.debug?.(`MQTT inbound context: ${JSON.stringify(ctxPayload)}`);
+
+    // Dispatch through OpenClaw's reply system
+    await runtime.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
+      ctx: ctxPayload,
+      cfg,
+      dispatcherOptions: {
+        deliver: async (payload: { text?: string; media?: any }, info: { kind: string }) => {
+          if (!payload.text) {
+            log?.debug?.(`MQTT: skipping empty ${info.kind} reply`);
+            return;
+          }
+
+          log?.info?.(`MQTT: delivering ${info.kind} reply (${payload.text.length} chars)`);
+
+          // Send reply back via MQTT
+          if (mqttClient?.isConnected()) {
+            try {
+              await mqttClient.publish(outboundTopic, payload.text, qos as 0 | 1 | 2);
+              log?.info?.(`MQTT: sent reply to ${outboundTopic}`);
+            } catch (err) {
+              log?.error?.(`MQTT: failed to send reply: ${err}`);
+            }
+          } else {
+            log?.warn?.(`MQTT: not connected, cannot send reply`);
+          }
+        },
+        onSkip: (_payload: any, info: { reason: string }) => {
+          log?.debug?.(`MQTT: skipped reply (${info.reason})`);
+        },
+        onError: (err: Error, info: { kind: string }) => {
+          log?.error?.(`MQTT: ${info.kind} reply error: ${err}`);
+        },
+      },
+      replyOptions: {},
+    });
+
+    log?.info?.(`MQTT message processed from ${senderId}`);
   } catch (err) {
     log?.error?.(`Failed to process MQTT message: ${err}`);
   }
