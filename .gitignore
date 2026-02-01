@@ -20,6 +20,18 @@ coverage/
 # Logs
 *.log
 
-# Environment
+# Environment & Secrets
 .env
 .env.local
+.env.*.local
+
+# Never commit actual config with credentials
+config.json
+config.local.json
+*.secret
+*.key
+*.pem
+*.crt
+
+# OpenClaw config (contains secrets)
+openclaw.json
