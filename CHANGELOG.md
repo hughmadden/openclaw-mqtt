@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-02-01
+
+### Fixed
+- Package now ships pre-built JS files (consumers no longer need to compile)
+- Added `files` field to package.json for clean npm publishing
+- Added type declarations for openclaw/plugin-sdk (SDK doesn't ship .d.ts yet)
+- Fixed implicit `any` type errors in channel.ts
+
+### Changed
+- `main` now points to `dist/index.js` instead of `index.ts`
+- `openclaw.extensions` updated to reference compiled output
+- Added `prepublishOnly` script to ensure build before publish
+
 ## [Unreleased]
 
 ### Added

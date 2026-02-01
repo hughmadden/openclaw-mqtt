@@ -32,12 +32,12 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
   },
 
   config: {
-    listAccountIds: (cfg) => {
+    listAccountIds: (cfg: any) => {
       // Single account for now (the broker connection)
       return cfg.channels?.mqtt?.brokerUrl ? ["default"] : [];
     },
 
-    resolveAccount: (cfg, accountId) => {
+    resolveAccount: (cfg: any, accountId: any) => {
       const mqtt = cfg.channels?.mqtt;
       if (!mqtt) return { accountId: accountId ?? "default" };
       return {
@@ -50,7 +50,7 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
   outbound: {
     deliveryMode: "direct",
 
-    async sendText({ text, cfg }) {
+    async sendText({ text, cfg }: { text: string; cfg: any }) {
       const mqtt = cfg.channels?.mqtt;
       if (!mqtt?.brokerUrl) {
         return { ok: false, error: "MQTT not configured" };
@@ -73,7 +73,7 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
   // Gateway lifecycle hooks
   gateway: {
-    async start({ cfg, logger, injectMessage }) {
+    async start({ cfg, logger, injectMessage }: { cfg: any; logger: any; injectMessage: any }) {
       const mqtt = cfg.channels?.mqtt;
       if (!mqtt?.brokerUrl) {
         logger.debug("MQTT channel not configured, skipping");
@@ -106,7 +106,7 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
       logger.info(`MQTT channel ready, subscribed to ${inboundTopic}`);
     },
 
-    async stop({ logger }) {
+    async stop({ logger }: { logger: any }) {
       if (mqttClient) {
         logger.info("MQTT channel stopping");
         await mqttClient.disconnect();

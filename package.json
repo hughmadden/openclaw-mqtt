@@ -1,9 +1,18 @@
 {
   "name": "@turquoisebay/openclaw-mqtt",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "MQTT channel plugin for OpenClaw - bidirectional messaging via MQTT brokers",
   "type": "module",
-  "main": "index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md",
+    "CHANGELOG.md",
+    ".env.example",
+    "config.example.json"
+  ],
   "keywords": [
     "openclaw",
     "mqtt",
@@ -21,7 +30,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ],
     "channel": {
       "id": "mqtt",
@@ -43,9 +52,10 @@
     "zod": "3.24.2"
   },
   "devDependencies": {
+    "@types/node": "22.13.1",
+    "openclaw": "^2026.1.30",
     "typescript": "5.7.3",
-    "vitest": "2.1.9",
-    "@types/node": "22.13.1"
+    "vitest": "2.1.9"
   },
   "peerDependencies": {
     "openclaw": ">=2026.1.0"
@@ -57,6 +67,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
