@@ -14,16 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Channel plugin structure following OpenClaw conventions
 - README with installation and usage docs
 - TypeScript configuration
+- MQTT client manager with connection lifecycle
+- Subscribe to inbound topic, inject messages to OpenClaw
+- Publish to outbound topic via sendText
+- Reconnection with exponential backoff
+- MQTT wildcard support (+ and #)
+- Environment variable support for secrets
+- JSON message parsing for structured alerts
+- Unit tests for topic matching and config merge
 
 ### TODO
-- [ ] Implement MQTT client connection
-- [ ] Subscribe to inbound topic
-- [ ] Publish to outbound topic
-- [ ] Reconnection with exponential backoff
-- [ ] TLS support
-- [ ] Unit tests
+- [ ] TLS certificate file loading
 - [ ] Integration tests with Mosquitto container
 - [ ] GitHub Actions CI
+- [ ] Last Will and Testament support
+- [ ] Multiple topic subscriptions
 
 ## [0.1.0] - Unreleased
 
