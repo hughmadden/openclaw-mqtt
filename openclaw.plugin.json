@@ -2,97 +2,10 @@
   "id": "mqtt",
   "name": "MQTT",
   "description": "Bidirectional MQTT channel for IoT and home automation integration",
-  "version": "0.1.0",
   "channels": ["mqtt"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {
-      "brokerUrl": {
-        "type": "string",
-        "description": "MQTT broker URL (e.g., mqtt://localhost:1883)"
-      },
-      "username": {
-        "type": "string",
-        "description": "Broker username (optional)"
-      },
-      "password": {
-        "type": "string",
-        "description": "Broker password (optional)"
-      },
-      "clientId": {
-        "type": "string",
-        "description": "MQTT client ID (default: openclaw-<random>)"
-      },
-      "topics": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "inbound": {
-            "type": "string",
-            "description": "Topic to subscribe for inbound messages",
-            "default": "openclaw/inbound"
-          },
-          "outbound": {
-            "type": "string", 
-            "description": "Topic to publish outbound messages",
-            "default": "openclaw/outbound"
-          }
-        }
-      },
-      "qos": {
-        "type": "integer",
-        "enum": [0, 1, 2],
-        "description": "Quality of Service level (0=at most once, 1=at least once, 2=exactly once)",
-        "default": 1
-      },
-      "tls": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "default": false
-          },
-          "rejectUnauthorized": {
-            "type": "boolean",
-            "default": true
-          },
-          "ca": {
-            "type": "string",
-            "description": "Path to CA certificate file"
-          }
-        }
-      }
-    },
-    "required": ["brokerUrl"]
-  },
-  "uiHints": {
-    "brokerUrl": {
-      "label": "Broker URL",
-      "placeholder": "mqtt://localhost:1883"
-    },
-    "username": {
-      "label": "Username"
-    },
-    "password": {
-      "label": "Password",
-      "sensitive": true
-    },
-    "clientId": {
-      "label": "Client ID",
-      "placeholder": "openclaw-monitor"
-    },
-    "topics.inbound": {
-      "label": "Inbound Topic",
-      "placeholder": "openclaw/inbound"
-    },
-    "topics.outbound": {
-      "label": "Outbound Topic", 
-      "placeholder": "openclaw/outbound"
-    },
-    "qos": {
-      "label": "QoS Level"
-    }
+    "properties": {}
   }
 }
