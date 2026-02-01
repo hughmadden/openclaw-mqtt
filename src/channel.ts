@@ -92,18 +92,6 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
       log?.info?.(`[${accountId}] starting MQTT provider (${mqtt.brokerUrl})`);
 
-      // Create inbound debouncer for message injection
-      const debounceMs = runtime.channel.debounce.resolveInboundDebounceMs({
-        cfg,
-        channel: "mqtt",
-      });
-      const inboundDebouncer = runtime.channel.debounce.createInboundDebouncer({
-        debounceMs,
-        channel: "mqtt",
-        accountId,
-        cfg,
-      });
-
       // Create and connect client
       mqttClient = createMqttClient(mqtt, {
         debug: (msg: string) => log?.debug?.(`[MQTT] ${msg}`),
@@ -122,7 +110,7 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
       // Subscribe to inbound topic
       const inboundTopic = mqtt.topics?.inbound ?? "openclaw/inbound";
       mqttClient.subscribe(inboundTopic, (topic: string, payload: Buffer) => {
-        handleInboundMessage(topic, payload, inboundDebouncer, log, accountId);
+        handleInboundMessage(topic, payload, runtime, log, accountId);
       });
 
       log?.info?.(`[${accountId}] MQTT channel ready, subscribed to ${inboundTopic}`);
@@ -153,12 +141,12 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 };
 
 /**
- * Handle inbound MQTT message and inject into OpenClaw via debouncer
+ * Handle inbound MQTT message and inject into OpenClaw as a system event
  */
 function handleInboundMessage(
   topic: string,
   payload: Buffer,
-  inboundDebouncer: any,
+  runtime: any,
   log: any,
   accountId: string
 ) {
@@ -202,24 +190,15 @@ function handleInboundMessage(
       senderId = topic.replace(/\//g, "-");
     }
 
-    // Build inbound message for OpenClaw
-    const message = {
-      channel: "mqtt",
-      accountId,
-      chatType: "direct" as const,
-      senderId,
-      senderName: senderId,
-      text: messageText,
-      timestamp: Date.now(),
-      raw: {
-        topic,
-        payload: text,
-        parsedPayload,
-      },
-    };
+    // Format as system event with context
+    const systemEventText = `[MQTT/${senderId}] ${messageText}`;
+    
+    // Enqueue as system event to main session
+    runtime.system.enqueueSystemEvent(systemEventText, {
+      sessionKey: "agent:main:main",
+    });
 
-    // Enqueue via debouncer (handles message injection)
-    inboundDebouncer.enqueue({ message });
+    log?.info?.(`MQTT message enqueued as system event from ${senderId}`);
   } catch (err) {
     log?.error?.(`Failed to process MQTT message: ${err}`);
   }
