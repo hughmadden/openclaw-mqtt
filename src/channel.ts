@@ -2,6 +2,7 @@ import type { ChannelPlugin, InboundMessage } from "openclaw/plugin-sdk";
 import type { MqttCoreConfig } from "./types.js";
 import { createMqttClient, MqttClientManager } from "./client.js";
 import { mqttOnboardingAdapter } from "./onboarding.js";
+import { getMqttRuntime } from "./runtime.js";
 
 // Global client instance (one per gateway lifecycle)
 let mqttClient: MqttClientManager | null = null;
@@ -40,12 +41,17 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
     resolveAccount: (cfg: any, accountId: any) => {
       const mqtt = cfg.channels?.mqtt;
-      if (!mqtt) return { accountId: accountId ?? "default" };
+      if (!mqtt) return { accountId: accountId ?? "default", enabled: false };
       return {
         accountId: accountId ?? "default",
+        enabled: mqtt.enabled !== false,
         brokerUrl: mqtt.brokerUrl,
+        config: mqtt,
       };
     },
+
+    isEnabled: (account: any) => account.enabled !== false,
+    isConfigured: (account: any) => Boolean(account.brokerUrl),
   },
 
   outbound: {
@@ -74,45 +80,71 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 
   // Gateway lifecycle hooks
   gateway: {
-    async start({ cfg, logger, injectMessage }: { cfg: any; logger: any; injectMessage: any }) {
+    startAccount: async (ctx: any) => {
+      const { cfg, account, accountId, abortSignal, log } = ctx;
+      const runtime = getMqttRuntime();
+
       const mqtt = cfg.channels?.mqtt;
       if (!mqtt?.brokerUrl) {
-        logger.debug("MQTT channel not configured, skipping");
+        log?.debug?.("MQTT channel not configured, skipping");
         return;
       }
 
-      logger.info(`MQTT channel starting, broker: ${mqtt.brokerUrl}`);
+      log?.info?.(`[${accountId}] starting MQTT provider (${mqtt.brokerUrl})`);
+
+      // Create inbound debouncer for message injection
+      const debounceMs = runtime.channel.debounce.resolveInboundDebounceMs({
+        cfg,
+        channel: "mqtt",
+      });
+      const inboundDebouncer = runtime.channel.debounce.createInboundDebouncer({
+        debounceMs,
+        channel: "mqtt",
+        accountId,
+        cfg,
+      });
 
       // Create and connect client
       mqttClient = createMqttClient(mqtt, {
-        debug: (msg) => logger.debug(`[MQTT] ${msg}`),
-        info: (msg) => logger.info(`[MQTT] ${msg}`),
-        warn: (msg) => logger.warn(`[MQTT] ${msg}`),
-        error: (msg) => logger.error(`[MQTT] ${msg}`),
+        debug: (msg: string) => log?.debug?.(`[MQTT] ${msg}`),
+        info: (msg: string) => log?.info?.(`[MQTT] ${msg}`),
+        warn: (msg: string) => log?.warn?.(`[MQTT] ${msg}`),
+        error: (msg: string) => log?.error?.(`[MQTT] ${msg}`),
       });
 
       try {
         await mqttClient.connect();
       } catch (err) {
-        logger.error(`MQTT connection failed: ${err}`);
-        return;
+        log?.error?.(`MQTT connection failed: ${err}`);
+        throw err;
       }
 
       // Subscribe to inbound topic
       const inboundTopic = mqtt.topics?.inbound ?? "openclaw/inbound";
-      mqttClient.subscribe(inboundTopic, (topic, payload) => {
-        handleInboundMessage(topic, payload, injectMessage, logger);
+      mqttClient.subscribe(inboundTopic, (topic: string, payload: Buffer) => {
+        handleInboundMessage(topic, payload, inboundDebouncer, log, accountId);
       });
 
-      logger.info(`MQTT channel ready, subscribed to ${inboundTopic}`);
-    },
+      log?.info?.(`[${accountId}] MQTT channel ready, subscribed to ${inboundTopic}`);
 
-    async stop({ logger }: { logger: any }) {
-      if (mqttClient) {
-        logger.info("MQTT channel stopping");
-        await mqttClient.disconnect();
-        mqttClient = null;
-      }
+      // Return a promise that resolves when aborted
+      return new Promise<void>((resolve) => {
+        const cleanup = () => {
+          if (mqttClient) {
+            log?.info?.(`[${accountId}] MQTT channel stopping`);
+            mqttClient.disconnect().finally(() => {
+              mqttClient = null;
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        };
+
+        if (abortSignal) {
+          abortSignal.addEventListener("abort", cleanup, { once: true });
+        }
+      });
     },
   },
 
@@ -121,17 +153,18 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
 };
 
 /**
- * Handle inbound MQTT message and inject into OpenClaw
+ * Handle inbound MQTT message and inject into OpenClaw via debouncer
  */
 function handleInboundMessage(
   topic: string,
   payload: Buffer,
-  injectMessage: (msg: InboundMessage) => void,
-  logger: { info: (msg: string) => void; error: (msg: string) => void }
+  inboundDebouncer: any,
+  log: any,
+  accountId: string
 ) {
   try {
     const text = payload.toString("utf-8");
-    logger.info(`Inbound MQTT message on ${topic}: ${text.slice(0, 200)}...`);
+    log?.info?.(`Inbound MQTT message on ${topic}: ${text.slice(0, 200)}${text.length > 200 ? "..." : ""}`);
 
     // Try to parse as JSON for structured messages
     let parsedPayload: unknown;
@@ -142,7 +175,7 @@ function handleInboundMessage(
       parsedPayload = null;
     }
 
-    // Extract message text
+    // Extract message text and sender
     let messageText: string;
     let senderId = "mqtt";
 
@@ -156,7 +189,7 @@ function handleInboundMessage(
         (obj.alert as string) ??
         (obj.body as string) ??
         text;
-      
+
       // Extract sender if available
       senderId =
         (obj.source as string) ??
@@ -169,11 +202,11 @@ function handleInboundMessage(
       senderId = topic.replace(/\//g, "-");
     }
 
-    // Inject message into OpenClaw
-    injectMessage({
+    // Build inbound message for OpenClaw
+    const message = {
       channel: "mqtt",
-      accountId: "default",
-      chatType: "direct",
+      accountId,
+      chatType: "direct" as const,
       senderId,
       senderName: senderId,
       text: messageText,
@@ -183,8 +216,11 @@ function handleInboundMessage(
         payload: text,
         parsedPayload,
       },
-    });
+    };
+
+    // Enqueue via debouncer (handles message injection)
+    inboundDebouncer.enqueue({ message });
   } catch (err) {
-    logger.error(`Failed to process MQTT message: ${err}`);
+    log?.error?.(`Failed to process MQTT message: ${err}`);
   }
 }
