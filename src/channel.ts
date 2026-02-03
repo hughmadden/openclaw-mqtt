@@ -188,6 +188,7 @@ async function handleInboundMessage(opts: {
         text;
 
       senderId =
+        (parsedPayload.senderId as string) ??
         (parsedPayload.source as string) ??
         (parsedPayload.sender as string) ??
         (parsedPayload.from as string) ??
@@ -202,11 +203,14 @@ async function handleInboundMessage(opts: {
     const ctxPayload = runtime.channel.reply.finalizeInboundContext({
       Body: messageBody,
       RawBody: text,
+      CommandBody: messageBody,
+      CommandAuthorized: true,
       From: `mqtt:${senderId}`,
       To: `mqtt:${accountId}`,
       SessionKey: `agent:main:mqtt:${senderId}`,
       AccountId: accountId,
       ChatType: "direct",
+      ConversationLabel: `mqtt:${senderId}`,
       SenderName: senderId,
       SenderId: senderId,
       Provider: "mqtt",
@@ -215,9 +219,9 @@ async function handleInboundMessage(opts: {
       Timestamp: Date.now(),
     });
 
-    log?.debug?.(`MQTT inbound context: ${JSON.stringify(ctxPayload)}`);
+    // inbound context logging removed
 
-    // Dispatch through OpenClaw's reply system
+    // Dispatch through OpenClaw's reply system and publish replies
     await runtime.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
       ctx: ctxPayload,
       cfg,
@@ -228,12 +232,17 @@ async function handleInboundMessage(opts: {
             return;
           }
 
-          log?.info?.(`MQTT: delivering ${info.kind} reply (${payload.text.length} chars)`);
+          log?.info?.(`MQTT reply (${info.kind}) [${payload.text.length} chars]`);
 
-          // Send reply back via MQTT
           if (mqttClient?.isConnected()) {
             try {
-              await mqttClient.publish(outboundTopic, payload.text, qos as 0 | 1 | 2);
+              const outboundPayload = JSON.stringify({
+                senderId: "openclaw",
+                text: payload.text,
+                kind: info.kind,
+                ts: Date.now(),
+              });
+              await mqttClient.publish(outboundTopic, outboundPayload, qos as 0 | 1 | 2);
               log?.info?.(`MQTT: sent reply to ${outboundTopic}`);
             } catch (err) {
               log?.error?.(`MQTT: failed to send reply: ${err}`);
@@ -249,8 +258,12 @@ async function handleInboundMessage(opts: {
           log?.error?.(`MQTT: ${info.kind} reply error: ${err}`);
         },
       },
-      replyOptions: {},
+      replyOptions: {
+        disableBlockStreaming: true,
+      },
     });
+
+    // dispatch complete
 
     log?.info?.(`MQTT message processed from ${senderId}`);
   } catch (err) {

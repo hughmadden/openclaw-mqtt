@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-02-03
+
+### Changed
+- Simplified MQTT inbound handling and reduced debug noise
+- Publish agent replies to outbound as JSON payloads
+- Align plugin id with manifest/config (`openclaw-mqtt`)
+
 ## [0.1.10] - 2026-02-03
 
 ### Fixed
@@ -60,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### TODO
+- [ ] TLS certificate file loading
+- [ ] Integration tests with Mosquitto container
+- [ ] GitHub Actions CI
+- [ ] Last Will and Testament support
+- [ ] Multiple topic subscriptions
+
+## [0.1.0] - Unreleased
+
 ### Added
 - Initial project scaffold
 - Plugin manifest (`openclaw.plugin.json`)
@@ -75,14 +91,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Environment variable support for secrets
 - JSON message parsing for structured alerts
 - Unit tests for topic matching and config merge
-
-### TODO
-- [ ] TLS certificate file loading
-- [ ] Integration tests with Mosquitto container
-- [ ] GitHub Actions CI
-- [ ] Last Will and Testament support
-- [ ] Multiple topic subscriptions
-
-## [0.1.0] - Unreleased
-
-Initial release (in development).

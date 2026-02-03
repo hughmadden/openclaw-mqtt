@@ -96,10 +96,11 @@ export function createMqttClient(
 
       client.on("message", (topic, payload) => {
         logger.debug(`Received message on ${topic}: ${payload.length} bytes`);
-        const handlers = messageHandlers.get(topic) ?? [];
+        const handlers = [...(messageHandlers.get(topic) ?? [])];
         
-        // Also check wildcard subscriptions
+        // Also check wildcard subscriptions (skip exact match to avoid duplicates)
         for (const [pattern, patternHandlers] of messageHandlers) {
+          if (pattern === topic) continue;
           if (topicMatches(pattern, topic)) {
             handlers.push(...patternHandlers);
           }

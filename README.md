@@ -61,16 +61,26 @@ openclaw gateway restart
 
 ### Receiving messages (inbound)
 
-Messages published to your `inbound` topic will be processed by OpenClaw:
+Messages published to your `inbound` topic will be processed by OpenClaw.
+You can send either plain text or JSON (recommended):
 
 ```bash
-# External service sends alert
+# Plain text
 mosquitto_pub -t "openclaw/inbound" -m "Alert: Service down on playground"
+
+# JSON (recommended)
+mosquitto_pub -t "openclaw/inbound" -m '{"senderId":"pg-cli","text":"hello"}'
 ```
 
 ### Sending messages (outbound)
 
-OpenClaw can publish to the `outbound` topic via the `message` tool:
+Agent replies are published to the `outbound` topic as JSON:
+
+```json
+{"senderId":"openclaw","text":"...","kind":"final","ts":1700000000000}
+```
+
+If you want to publish custom text via CLI, use the `message` tool:
 
 ```bash
 openclaw agent --message "Send MQTT: Temperature is 23°C"
