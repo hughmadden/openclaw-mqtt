@@ -97,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] GitHub Actions CI
 - [ ] Last Will and Testament support
 - [ ] Multiple topic subscriptions
+- [ ] Pairing/handshake for trusted clients
 
 ## [0.1.0] - Unreleased
 

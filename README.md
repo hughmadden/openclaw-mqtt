@@ -124,11 +124,15 @@ automation:
         payload: "{{ trigger.payload }}"
 ```
 
+## Security
+
+**Important:** Any client that can publish to the inbound topic has full access to your OpenClaw agent. Treat MQTT as a **trusted channel only** (restricted broker, auth, private network). If you need untrusted access, add a validation layer before publishing to `openclaw/inbound`.
+
 ## Development
 
 ```bash
-# Clone
-git clone turq@10.0.20.9:/opt/git/openclaw-mqtt.git
+# Clone (replace with your host)
+git clone ssh://<host>/opt/git/openclaw-mqtt.git
 cd openclaw-mqtt
 
 # Install deps
