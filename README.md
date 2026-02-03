@@ -10,6 +10,7 @@ MQTT channel plugin for [OpenClaw](https://github.com/openclaw/openclaw) — bid
 
 - 🔌 **Bidirectional messaging** — subscribe and publish to MQTT topics
 - 🏠 **Home automation ready** — integrates with Home Assistant, Mosquitto, EMQX
+- 🔁 **Robust reconnection** — recovers from broker restarts and cold starts
 - 🔒 **TLS support** — secure connections to cloud brokers
 - 📊 **Service monitoring** — receive alerts from Uptime Kuma, healthchecks, etc.
 - ⚡ **QoS levels** — configurable delivery guarantees (0, 1, 2)
