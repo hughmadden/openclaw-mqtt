@@ -57,6 +57,12 @@ export class MockMqttClient extends EventEmitter {
     this.emit("close");
   }
 
+  reconnect() {
+    this.emit("reconnect");
+    setTimeout(() => this.simulateConnect(), 10);
+    return this;
+  }
+
   simulateReconnect() {
     this.emit("reconnect");
   }

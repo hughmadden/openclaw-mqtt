@@ -6,6 +6,7 @@ vi.mock("mqtt", () => import("./__mocks__/mqtt.js"));
 
 // Import after mocking
 import { mqttPlugin } from "./channel.js";
+import { setMqttRuntime } from "./runtime.js";
 
 describe("mqttPlugin", () => {
   const mockLogger = {
@@ -15,7 +16,17 @@ describe("mqttPlugin", () => {
     error: vi.fn(),
   };
 
-  const mockInjectMessage = vi.fn();
+  const mockDispatchReply = vi.fn(async () => undefined);
+  const mockFinalizeInboundContext = vi.fn((payload: any) => payload);
+
+  const mockRuntime = {
+    channel: {
+      reply: {
+        finalizeInboundContext: mockFinalizeInboundContext,
+        dispatchReplyWithBufferedBlockDispatcher: mockDispatchReply,
+      },
+    },
+  };
 
   const defaultCfg = {
     channels: {
@@ -30,9 +41,25 @@ describe("mqttPlugin", () => {
     },
   };
 
+  const startAccount = async (cfg: any = defaultCfg, accountId = "default") => {
+    const controller = new AbortController();
+    const startPromise = mqttPlugin.gateway?.startAccount?.({
+      cfg,
+      accountId,
+      log: mockLogger,
+      abortSignal: controller.signal,
+    } as any);
+
+    // Wait for async connect
+    await new Promise((r) => setTimeout(r, 50));
+
+    return { controller, startPromise };
+  };
+
   beforeEach(() => {
     resetMock();
     vi.clearAllMocks();
+    setMqttRuntime(mockRuntime as any);
   });
 
   afterEach(() => {
@@ -72,12 +99,13 @@ describe("mqttPlugin", () => {
     });
   });
 
-  describe("gateway.start", () => {
+  describe("gateway.startAccount", () => {
     it("should skip if not configured", async () => {
-      await mqttPlugin.gateway?.start?.({
+      await mqttPlugin.gateway?.startAccount?.({
         cfg: {} as any,
-        logger: mockLogger,
-        injectMessage: mockInjectMessage,
+        accountId: "default",
+        log: mockLogger,
+        abortSignal: new AbortController().signal,
       } as any);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -86,51 +114,35 @@ describe("mqttPlugin", () => {
     });
 
     it("should connect and subscribe when configured", async () => {
-      await mqttPlugin.gateway?.start?.({
-        cfg: defaultCfg as any,
-        logger: mockLogger,
-        injectMessage: mockInjectMessage,
-      } as any);
-
-      // Wait for async connect
-      await new Promise((r) => setTimeout(r, 50));
+      const { controller, startPromise } = await startAccount();
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining("MQTT channel starting")
+        expect.stringContaining("starting MQTT provider")
       );
 
       const mock = getMockClient();
       expect(mock?.subscriptions.has("openclaw/inbound")).toBe(true);
+
+      controller.abort();
+      await startPromise;
     });
 
-    it("should inject message on inbound MQTT", async () => {
-      await mqttPlugin.gateway?.start?.({
-        cfg: defaultCfg as any,
-        logger: mockLogger,
-        injectMessage: mockInjectMessage,
-      } as any);
-
-      await new Promise((r) => setTimeout(r, 50));
+    it("should process inbound MQTT messages", async () => {
+      const { controller, startPromise } = await startAccount();
 
       const mock = getMockClient();
       mock?.simulateMessage("openclaw/inbound", "Alert: Service down");
 
-      expect(mockInjectMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channel: "mqtt",
-          text: "Alert: Service down",
-        })
-      );
+      expect(mockDispatchReply).toHaveBeenCalled();
+      const lastCall = mockDispatchReply.mock.calls.at(-1)?.[0];
+      expect(lastCall?.ctx?.Body).toBe("Alert: Service down");
+
+      controller.abort();
+      await startPromise;
     });
 
     it("should parse JSON messages", async () => {
-      await mqttPlugin.gateway?.start?.({
-        cfg: defaultCfg as any,
-        logger: mockLogger,
-        injectMessage: mockInjectMessage,
-      } as any);
-
-      await new Promise((r) => setTimeout(r, 50));
+      const { controller, startPromise } = await startAccount();
 
       const mock = getMockClient();
       mock?.simulateMessage(
@@ -142,43 +154,32 @@ describe("mqttPlugin", () => {
         })
       );
 
-      expect(mockInjectMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channel: "mqtt",
-          text: "Server CPU high",
-          senderId: "uptime-kuma",
-        })
-      );
+      expect(mockDispatchReply).toHaveBeenCalled();
+      const lastCall = mockDispatchReply.mock.calls.at(-1)?.[0];
+      expect(lastCall?.ctx?.Body).toBe("Server CPU high");
+      expect(lastCall?.ctx?.SenderId).toBe("uptime-kuma");
+
+      controller.abort();
+      await startPromise;
     });
   });
 
-  describe("gateway.stop", () => {
+  describe("gateway.abort", () => {
     it("should disconnect cleanly", async () => {
-      await mqttPlugin.gateway?.start?.({
-        cfg: defaultCfg as any,
-        logger: mockLogger,
-        injectMessage: mockInjectMessage,
-      } as any);
+      const { controller, startPromise } = await startAccount();
 
-      await new Promise((r) => setTimeout(r, 50));
+      controller.abort();
+      await startPromise;
 
-      await mqttPlugin.gateway?.stop?.({
-        logger: mockLogger,
-      } as any);
-
-      expect(mockLogger.info).toHaveBeenCalledWith("MQTT channel stopping");
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining("MQTT channel stopping")
+      );
     });
   });
 
   describe("outbound.sendText", () => {
     it("should publish to outbound topic", async () => {
-      await mqttPlugin.gateway?.start?.({
-        cfg: defaultCfg as any,
-        logger: mockLogger,
-        injectMessage: mockInjectMessage,
-      } as any);
-
-      await new Promise((r) => setTimeout(r, 50));
+      const { controller, startPromise } = await startAccount();
 
       const result = await mqttPlugin.outbound.sendText({
         text: "Hello from OpenClaw",
@@ -194,6 +195,9 @@ describe("mqttPlugin", () => {
           message: "Hello from OpenClaw",
         })
       );
+
+      controller.abort();
+      await startPromise;
     });
 
     it("should fail if not configured", async () => {
@@ -207,14 +211,6 @@ describe("mqttPlugin", () => {
     });
 
     it("should fail if not connected", async () => {
-      // Ensure we're disconnected by stopping any previous connection
-      await mqttPlugin.gateway?.stop?.({
-        logger: mockLogger,
-      } as any);
-
-      // Reset mock to ensure clean state
-      resetMock();
-
       const result = await mqttPlugin.outbound.sendText({
         text: "Hello",
         cfg: defaultCfg as any,
@@ -234,7 +230,17 @@ describe("inbound message parsing", () => {
     error: vi.fn(),
   };
 
-  const mockInjectMessage = vi.fn();
+  const mockDispatchReply = vi.fn(async () => undefined);
+  const mockFinalizeInboundContext = vi.fn((payload: any) => payload);
+
+  const mockRuntime = {
+    channel: {
+      reply: {
+        finalizeInboundContext: mockFinalizeInboundContext,
+        dispatchReplyWithBufferedBlockDispatcher: mockDispatchReply,
+      },
+    },
+  };
 
   const cfg = {
     channels: {
@@ -246,38 +252,42 @@ describe("inbound message parsing", () => {
     },
   };
 
+  const startAccount = async () => {
+    const controller = new AbortController();
+    const startPromise = mqttPlugin.gateway?.startAccount?.({
+      cfg: cfg as any,
+      accountId: "default",
+      log: mockLogger,
+      abortSignal: controller.signal,
+    } as any);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    return { controller, startPromise };
+  };
+
   beforeEach(() => {
     resetMock();
     vi.clearAllMocks();
+    setMqttRuntime(mockRuntime as any);
   });
 
   it("should handle plain text messages", async () => {
-    await mqttPlugin.gateway?.start?.({
-      cfg: cfg as any,
-      logger: mockLogger,
-      injectMessage: mockInjectMessage,
-    } as any);
-
-    await new Promise((r) => setTimeout(r, 50));
+    const { controller, startPromise } = await startAccount();
 
     getMockClient()?.simulateMessage("test/in", "Plain text alert");
 
-    expect(mockInjectMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: "Plain text alert",
-        senderId: "test-in", // topic with / replaced
-      })
-    );
+    expect(mockDispatchReply).toHaveBeenCalled();
+    const lastCall = mockDispatchReply.mock.calls.at(-1)?.[0];
+    expect(lastCall?.ctx?.Body).toBe("Plain text alert");
+    expect(lastCall?.ctx?.SenderId).toBe("test-in");
+
+    controller.abort();
+    await startPromise;
   });
 
   it("should extract message from various JSON formats", async () => {
-    await mqttPlugin.gateway?.start?.({
-      cfg: cfg as any,
-      logger: mockLogger,
-      injectMessage: mockInjectMessage,
-    } as any);
-
-    await new Promise((r) => setTimeout(r, 50));
+    const { controller, startPromise } = await startAccount();
 
     const testCases = [
       { input: { message: "msg1" }, expected: "msg1" },
@@ -288,23 +298,19 @@ describe("inbound message parsing", () => {
     ];
 
     for (const { input, expected } of testCases) {
-      mockInjectMessage.mockClear();
+      mockDispatchReply.mockClear();
       getMockClient()?.simulateMessage("test/in", JSON.stringify(input));
 
-      expect(mockInjectMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ text: expected })
-      );
+      const lastCall = mockDispatchReply.mock.calls.at(-1)?.[0];
+      expect(lastCall?.ctx?.Body).toBe(expected);
     }
+
+    controller.abort();
+    await startPromise;
   });
 
   it("should extract sender from JSON", async () => {
-    await mqttPlugin.gateway?.start?.({
-      cfg: cfg as any,
-      logger: mockLogger,
-      injectMessage: mockInjectMessage,
-    } as any);
-
-    await new Promise((r) => setTimeout(r, 50));
+    const { controller, startPromise } = await startAccount();
 
     const testCases = [
       { input: { message: "x", source: "src1" }, expectedSender: "src1" },
@@ -314,12 +320,14 @@ describe("inbound message parsing", () => {
     ];
 
     for (const { input, expectedSender } of testCases) {
-      mockInjectMessage.mockClear();
+      mockDispatchReply.mockClear();
       getMockClient()?.simulateMessage("test/in", JSON.stringify(input));
 
-      expect(mockInjectMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ senderId: expectedSender })
-      );
+      const lastCall = mockDispatchReply.mock.calls.at(-1)?.[0];
+      expect(lastCall?.ctx?.SenderId).toBe(expectedSender);
     }
+
+    controller.abort();
+    await startPromise;
   });
 });

@@ -79,13 +79,14 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
   gateway: {
     startAccount: async (ctx: any) => {
       const { cfg, account, accountId, abortSignal, log } = ctx;
-      const runtime = getMqttRuntime();
 
       const mqtt = cfg.channels?.mqtt;
       if (!mqtt?.brokerUrl) {
         log?.debug?.("MQTT channel not configured, skipping");
         return;
       }
+
+      const runtime = getMqttRuntime();
 
       log?.info?.(`[${accountId}] starting MQTT provider (${mqtt.brokerUrl})`);
 
@@ -100,8 +101,7 @@ export const mqttPlugin: ChannelPlugin<MqttCoreConfig> = {
       try {
         await mqttClient.connect();
       } catch (err) {
-        log?.error?.(`MQTT connection failed: ${err}`);
-        throw err;
+        log?.error?.(`MQTT connection failed (will keep retrying): ${err}`);
       }
 
       // Subscribe to inbound topic
