@@ -1,6 +1,6 @@
 {
-  "name": "@turquoisebay/openclaw-mqtt",
-  "version": "0.1.12",
+  "name": "@turquoisebay/mqtt",
+  "version": "0.1.13",
   "description": "MQTT channel plugin for OpenClaw - bidirectional messaging via MQTT brokers",
   "type": "module",
   "main": "dist/index.js",
@@ -42,7 +42,7 @@
       "order": 80
     },
     "install": {
-      "npmSpec": "@hughmadden/openclaw-mqtt",
+      "npmSpec": "@turquoisebay/mqtt",
       "localPath": "extensions/mqtt",
       "defaultChoice": "npm"
     }
