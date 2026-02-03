@@ -9,10 +9,8 @@ MQTT channel plugin for [OpenClaw](https://github.com/openclaw/openclaw) — bid
 ## Features
 
 - 🔌 **Bidirectional messaging** — subscribe and publish to MQTT topics
-- 🏠 **Home automation ready** — integrates with Home Assistant, Mosquitto, EMQX
 - 🔁 **Robust reconnection** — recovers from broker restarts and cold starts
 - 🔒 **TLS support** — secure connections to cloud brokers
-- 📊 **Service monitoring** — receive alerts from Uptime Kuma, healthchecks, etc.
 - ⚡ **QoS levels** — configurable delivery guarantees (0, 1, 2)
 
 ## Installation
@@ -92,36 +90,6 @@ If you want to publish custom text via CLI, use the `message` tool:
 
 ```bash
 openclaw agent --message "Send MQTT: Temperature is 23°C"
-```
-
-## Use Cases
-
-### Service Monitoring
-
-Pair with [Uptime Kuma](https://github.com/louislam/uptime-kuma) to receive alerts:
-
-1. Configure Uptime Kuma notification → MQTT
-2. Set topic to `openclaw/inbound`
-3. OpenClaw receives and can act on alerts
-
-### Home Assistant Integration
-
-```yaml
-# Home Assistant configuration.yaml
-mqtt:
-  sensor:
-    - name: "OpenClaw Status"
-      state_topic: "openclaw/outbound"
-  
-automation:
-  - trigger:
-      platform: mqtt
-      topic: "home/alerts"
-    action:
-      service: mqtt.publish
-      data:
-        topic: "openclaw/inbound"
-        payload: "{{ trigger.payload }}"
 ```
 
 ## Security
