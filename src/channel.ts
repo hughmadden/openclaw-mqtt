@@ -177,6 +177,7 @@ async function handleInboundMessage(opts: {
     // Extract message body and sender from payload
     let messageBody: string;
     let senderId: string;
+    let correlationId: string | undefined;
 
     if (parsedPayload && typeof parsedPayload === "object") {
       messageBody =
@@ -194,6 +195,11 @@ async function handleInboundMessage(opts: {
         (parsedPayload.from as string) ??
         (parsedPayload.service as string) ??
         topic.replace(/\//g, "-");
+
+      correlationId =
+        (parsedPayload.correlationId as string) ??
+        (parsedPayload.requestId as string) ??
+        undefined;
     } else {
       messageBody = text;
       senderId = topic.replace(/\//g, "-");
@@ -241,6 +247,7 @@ async function handleInboundMessage(opts: {
                 text: payload.text,
                 kind: info.kind,
                 ts: Date.now(),
+                ...(correlationId ? { correlationId } : {}),
               });
               await mqttClient.publish(outboundTopic, outboundPayload, qos as 0 | 1 | 2);
               log?.info?.(`MQTT: sent reply to ${outboundTopic}`);

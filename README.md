@@ -60,6 +60,13 @@ openclaw gateway restart
 
 ## Usage
 
+### Sessions & correlation IDs (important)
+
+- **Sessions are keyed by `senderId`** → OpenClaw uses `mqtt:{senderId}` as the SessionKey, so memory and conversation history are grouped by sender.
+- **`correlationId` is request‑level only** → if you include it in inbound JSON, it’s echoed back in the outbound reply for client-side matching. It does **not** create a new session or change memory.
+
+If you want separate conversations, use distinct `senderId`s.
+
 ### Receiving messages (inbound)
 
 Messages published to your `inbound` topic will be processed by OpenClaw.
@@ -70,7 +77,7 @@ You can send either plain text or JSON (recommended):
 mosquitto_pub -t "openclaw/inbound" -m "Alert: Service down on playground"
 
 # JSON (recommended)
-mosquitto_pub -t "openclaw/inbound" -m '{"senderId":"pg-cli","text":"hello"}'
+mosquitto_pub -t "openclaw/inbound" -m '{"senderId":"pg-cli","text":"hello","correlationId":"abc-123"}'
 ```
 
 ### Sending messages (outbound)

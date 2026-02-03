@@ -16,7 +16,11 @@ describe("mqttPlugin", () => {
     error: vi.fn(),
   };
 
-  const mockDispatchReply = vi.fn(async () => undefined);
+  const mockDispatchReply = vi.fn(async ({ dispatcherOptions }: any) => {
+    if (dispatcherOptions?.deliver) {
+      await dispatcherOptions.deliver({ text: "test reply" }, { kind: "final" });
+    }
+  });
   const mockFinalizeInboundContext = vi.fn((payload: any) => payload);
 
   const mockRuntime = {
@@ -162,6 +166,29 @@ describe("mqttPlugin", () => {
       controller.abort();
       await startPromise;
     });
+
+    it("should echo correlationId in outbound replies", async () => {
+      const { controller, startPromise } = await startAccount();
+
+      const mock = getMockClient();
+      mock?.simulateMessage(
+        "openclaw/inbound",
+        JSON.stringify({
+          message: "ping",
+          senderId: "pg-test",
+          correlationId: "corr-123",
+        })
+      );
+
+      const published = mock?.published ?? [];
+      expect(published.length).toBeGreaterThan(0);
+      const last = published[published.length - 1];
+      const data = JSON.parse(last.message as string);
+      expect(data.correlationId).toBe("corr-123");
+
+      controller.abort();
+      await startPromise;
+    });
   });
 
   describe("gateway.abort", () => {
@@ -230,7 +257,11 @@ describe("inbound message parsing", () => {
     error: vi.fn(),
   };
 
-  const mockDispatchReply = vi.fn(async () => undefined);
+  const mockDispatchReply = vi.fn(async ({ dispatcherOptions }: any) => {
+    if (dispatcherOptions?.deliver) {
+      await dispatcherOptions.deliver({ text: "test reply" }, { kind: "final" });
+    }
+  });
   const mockFinalizeInboundContext = vi.fn((payload: any) => payload);
 
   const mockRuntime = {

@@ -1,6 +1,6 @@
 {
   "name": "@turquoisebay/mqtt",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "MQTT channel plugin for OpenClaw - bidirectional messaging via MQTT brokers",
   "type": "module",
   "main": "dist/index.js",
